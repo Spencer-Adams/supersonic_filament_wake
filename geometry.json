@@ -1,0 +1,27 @@
+{   
+    "mu_1_pos": [0.0,-2.0, 0.0],
+    "mu_2_pos": [0.0,-1.0, 0.0],
+    "mu_3_pos": [0.0, 0.0, 0.0],
+    "mu_4_pos": [0.0, 1.0, 0.0],
+
+    "mu_1_1" : 2.0,
+    "mu_1_2" : -2.2,
+
+    "mu_2_1" : 3.1,
+    "mu_2_2" : -3.5,
+
+    "mu_3_1" : 2.8,
+    "mu_3_2" : -2.9,
+
+    "mu_4_1" : 4.2,
+    "mu_4_2" : -4.8,
+
+    "num_panels": 4.0,
+    "normal_vec": [0.0,0.0,1.0],
+    "control_points": "control_points.txt",
+    "alpha[deg]": 0.0,
+    "mach_number": 1.5,
+    "dihedral[deg]" : 0.0,
+    "step_size" : 0.05,
+    "sweep[deg]" : 0.0
+ }
