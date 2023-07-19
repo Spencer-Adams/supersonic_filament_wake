@@ -1,6 +1,6 @@
 import json 
 import numpy as np
-np.set_printoptions(precision = 5)
+np.set_printoptions(precision = 4)
 import matplotlib.pyplot as plt 
 
 class vortex_filaments:
@@ -130,26 +130,71 @@ class vortex_filaments:
         beta_squared = 1 - mach_number**2
         # begin loops to define find the values we need to put in. The limits of integration should be from the panel edges to the singularities at each point. 
         integration_bounds = self.singularities
+        velocity_influences = []
         for i in range(len(integration_bounds)):
             k = 1 # assumming supersonic flow. 
             xo = integration_bounds[i][2]
-            print("xo", xo)
             yo = integration_bounds[i][3]
-            print("yo", yo)
             zo = integration_bounds[i][4]
-            print("zo", zo)
             xf = integration_bounds[i][0]
-            print("xf", xf)
             y = integration_bounds[i][1]
-            print("y", y)
             xi = integration_bounds[i][5]
-            print("xi", xi)
             u = 0
             # to get more accurate results, change -((self.fil_strength[0]) to -((self.fil_strength[0]*zo) on the v equation. For now, leave off to test sensitivities.  
             v = -((self.fil_strength[0])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((1)/((yo-y)**2 + zo**2)) 
             w = ((self.fil_strength[0])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
-            print("[u, v, w]:\n", [u, v, w])
-            print("\n")
+            velocity_influences.append([u, v, w, xo, yo, y])
+        self.vel_influence = np.array(velocity_influences)
+
+        # print statements to help understand where to get the values from to combine influences later in the function
+        print("\n\n[   u       v     w     eval_x   eval_y  filament(named based on y location)]:\n")
+        for j in range(len(self.vel_influence)):
+            print(self.vel_influence[j], "\n")
+
+        ## Now, sum the influences of all the filaments together.
+        combined_inf = []
+        epsilon = 0.001
+        u_col = self.vel_influence[:, 0]
+        v_col = self.vel_influence[:, 1]
+        w_col = self.vel_influence[:, 2]
+        eval_point_x = self.vel_influence[:, 3]
+        eval_point_y = self.vel_influence[:, 4]
+
+        # Start with the first row's influence
+        u_combined = u_col[0]
+        v_combined = v_col[0]
+        w_combined = w_col[0]
+        prev_x = eval_point_x[0]
+        prev_y = eval_point_y[0]
+
+        for k in range(1, len(self.vel_influence)):
+            current_x = eval_point_x[k]
+            current_y = eval_point_y[k]
+
+            # refraining from using current_x==prev_x to prevent computer rounding issues. Using an epsilon just in case. 
+            if (abs(current_x - prev_x) <= epsilon) and (abs(current_y - prev_y) <= epsilon):
+                # Points are equal, combine their influences
+                u_combined += u_col[k]
+                v_combined += v_col[k]
+                w_combined += w_col[k]
+            else:
+                # Points are different, save the combined influence and update the variables
+                combined_inf.append([u_combined, v_combined, w_combined, prev_x, prev_y])
+                # You only want to append values to combined_inf once you know there are no more rows you want to combine together.
+                u_combined = u_col[k]
+                v_combined = v_col[k]
+                w_combined = w_col[k]
+                prev_x = current_x
+                prev_y = current_y
+
+        # Add the last combined influence after the loop finishes
+        combined_inf.append([u_combined, v_combined, w_combined, prev_x, prev_y])
+
+        self.combined_influences = np.array(combined_inf)
+        # print statements to show the combined influence of all the filaments on all the points (if the filaments lie inside the mach cone of said point)
+        print("\n\n[   u       v     w     eval_x   eval_y]:\n")
+        for m in range(len(self.combined_influences)):
+            print(self.combined_influences[m], "\n")
         
     def plot_vertices(self):
         plt.plot(self.mu_1_pos[0], marker = "o", color = "black", label = "Panel Vertices")
@@ -227,10 +272,10 @@ class vortex_filaments:
         self.plot_panels()
         self.plot_control_points()
         self.plot_mach_cone()
-        # plt.xlim(-5,2)
-        # plt.ylim(-3.0,2.5)
-        # plt.legend(loc='upper left')
-        # plt.show()
+        plt.xlim(-5,2)
+        plt.ylim(-3.0,2.5)
+        plt.legend(loc='upper left')
+        plt.show()
 
 if __name__ == "__main__":
     filaments = vortex_filaments("geometry.json")
