@@ -66,9 +66,10 @@ class vortex_filaments:
                 # print(len(self.mu_positions[0]))
         
     def calc_vortex_dens(self):
-        omega_J_1 = np.cross(self.normal_vec, np.gradient(self.mu_vecs_list[0]))
-        omega_J_2 = np.cross(self.normal_vec, np.gradient(self.mu_vecs_list[1]))
-        omega_J_3 = np.cross(self.normal_vec, np.gradient(self.mu_vecs_list[2]))
+        omega_J_1 = np.cross(self.normal_vec, (self.mu_vecs_list[0]))
+        # omega_J_1 = np.cross(self.normal_vec, np.gradient(self.mu_vecs_list[0]))
+        omega_J_2 = np.cross(self.normal_vec, (self.mu_vecs_list[1]))
+        omega_J_3 = np.cross(self.normal_vec, (self.mu_vecs_list[2]))
         self.omegas = np.array([omega_J_1, omega_J_2, omega_J_3])
 
     def calc_normal_deltas(self):
@@ -104,17 +105,24 @@ class vortex_filaments:
         self.y_space = np.linspace(-10,10, num_steps)
         self.z_space = np.linspace(-10,10, num_steps)
 
-    def calc_fil_y_location(self):
+    def calc_fil_start_location(self):
+        x_loc = np.empty(3)
         y_loc = np.empty(3)
+        z_loc = np.empty(3)
         for i in range(len(self.mu_positions)-1):
+            x_loc[i] = 0.0
             y_loc[i] = (self.mu_positions[i+1][1] + self.mu_positions[i][1])/2
-        self.filament_y_start = np.array(y_loc)
+            z_loc[i] = (self.mu_positions[i+1][2] + self.mu_positions[i][2])/2
+        filament_x_start = np.array(x_loc)
+        filament_y_start = np.array(y_loc)
+        filament_z_start = np.array(z_loc)
+        self.starting_point = np.array([filament_x_start, filament_y_start, filament_z_start])
 
     def calc_cone_singularity_locs(self):
         """This function finds the intersection of the filaments with the mach cones of all the points of interest"""
         intersect_x_y = []
         mach_number = self.mach_number
-        fil_y = self.filament_y_start
+        fil_y = self.starting_point[1]
         B_squared = mach_number**2 - 1
         for i in range(len(self.control_points)):
             for j in range(len(fil_y)):
@@ -128,32 +136,39 @@ class vortex_filaments:
     def calc_velocity_influences(self): # in loops, still need to define all the variables in the u, v, and w equations
         mach_number = self.mach_number
         beta_squared = 1 - mach_number**2
+        epsilon = 0.0001
         # begin loops to define find the values we need to put in. The limits of integration should be from the panel edges to the singularities at each point. 
         integration_bounds = self.singularities
         velocity_influences = []
         for i in range(len(integration_bounds)):
-            k = 1 # assumming supersonic flow. 
-            xo = integration_bounds[i][2]
-            yo = integration_bounds[i][3]
-            zo = integration_bounds[i][4]
-            xf = integration_bounds[i][0]
-            y = integration_bounds[i][1]
-            xi = integration_bounds[i][5]
-            u = 0
-            # to get more accurate results, change -((self.fil_strength[0]) to -((self.fil_strength[0]*zo) on the v equation. For now, leave off to test sensitivities.  
-            v = -((self.fil_strength[0])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((1)/((yo-y)**2 + zo**2)) 
-            w = ((self.fil_strength[0])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
-            velocity_influences.append([u, v, w, xo, yo, y])
+            for j in range(len(self.starting_point[1])):
+                k = 1 # assumming supersonic flow. 
+                xo = integration_bounds[i][2]
+                yo = integration_bounds[i][3]
+                zo = integration_bounds[i][4]
+                xf = integration_bounds[i][0]
+                y = integration_bounds[i][1]
+                xi = integration_bounds[i][5]
+
+                # refraining from using integration_bounds[i][6] == self.starting_point[1][j] to prevent computer rounding issues. Using an epsilon just in case.
+                if abs(integration_bounds[i][6] - self.starting_point[1][j]) <= epsilon:
+                    u = 0
+                    # to get more accurate results, change -((self.fil_strength[0]) to -((self.fil_strength[0]*zo) on the v equation. For now, leave off to test sensitivities.  
+                    v = -((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((1)/((yo-y)**2 + zo**2))
+                    w = ((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+                    # print("filament_strength:\n", self.fil_strength[j]) 
+                    velocity_influences.append([u, v, w, xo, yo, y])
+                else: 
+                    continue 
         self.vel_influence = np.array(velocity_influences)
 
         # print statements to help understand where to get the values from to combine influences later in the function
-        print("\n\n[   u       v     w     eval_x   eval_y  filament(named based on y location)]:\n")
+        print("\ninfluences on evaluation points\n[   u       v     w     eval_x   eval_y  filament(named based on y location)]:\n")
         for j in range(len(self.vel_influence)):
             print(self.vel_influence[j], "\n")
 
         ## Now, sum the influences of all the filaments together.
         combined_inf = []
-        epsilon = 0.001
         u_col = self.vel_influence[:, 0]
         v_col = self.vel_influence[:, 1]
         w_col = self.vel_influence[:, 2]
@@ -192,7 +207,7 @@ class vortex_filaments:
 
         self.combined_influences = np.array(combined_inf)
         # print statements to show the combined influence of all the filaments on all the points (if the filaments lie inside the mach cone of said point)
-        print("\n\n[   u       v     w     eval_x   eval_y]:\n")
+        print("Summed influences on points\n[   u       v     w     eval_x   eval_y]:\n")
         for m in range(len(self.combined_influences)):
             print(self.combined_influences[m], "\n")
         
@@ -257,8 +272,8 @@ class vortex_filaments:
         self.calc_filament_strengths()
         print("filament strengths:\n", self.fil_strength, "\n")
 
-        self.calc_fil_y_location()
-        print("Starting_y_filament_locations\n", self.filament_y_start, "\n")
+        self.calc_fil_start_location()
+        print("Starting_filament_locations\n", self.starting_point, "\n")
 
         self.calc_cone_singularity_locs()
         print("[x_sing, y_sing, x_control, y_control, z_control, x_start, y_start]: \n", self.singularities)
