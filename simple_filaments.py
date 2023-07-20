@@ -2,6 +2,7 @@ import json
 import numpy as np
 np.set_printoptions(precision = 4)
 import matplotlib.pyplot as plt 
+import scipy 
 
 class vortex_filaments:
     """This class contains functions that define vortex filaments and their influence on velocities at certain points"""
@@ -126,7 +127,7 @@ class vortex_filaments:
         B_squared = mach_number**2 - 1
         for i in range(len(self.control_points)):
             for j in range(len(fil_y)):
-                fil_x = np.sqrt(B_squared*(((mach_number**2 - 1) * ((fil_y[j]-self.control_points[i][1])**2)))) + self.control_points[i][0]
+                fil_x = np.sqrt((((mach_number**2 - 1) * ((fil_y[j]-self.control_points[i][1])**2)))) + self.control_points[i][0]
                 if fil_x <= 0.0:
                     # print("x,y", [fil_x, fil_y[j]])
                     # print("at control point: \n", self.control_points[i], "\n")
@@ -146,7 +147,7 @@ class vortex_filaments:
                 xo = integration_bounds[i][2]
                 yo = integration_bounds[i][3]
                 zo = integration_bounds[i][4]
-                xf = integration_bounds[i][0]
+                xf = integration_bounds[i][0] #  xf = xo - np.sqrt(-beta_squared*(yo-integration_bounds[i][6])**2+zo**2)  
                 y = integration_bounds[i][1]
                 xi = integration_bounds[i][5]
 
@@ -182,23 +183,23 @@ class vortex_filaments:
         prev_x = eval_point_x[0]
         prev_y = eval_point_y[0]
 
-        for k in range(1, len(self.vel_influence)):
-            current_x = eval_point_x[k]
-            current_y = eval_point_y[k]
+        for p in range(1, len(self.vel_influence)):
+            current_x = eval_point_x[p]
+            current_y = eval_point_y[p]
 
             # refraining from using current_x==prev_x to prevent computer rounding issues. Using an epsilon just in case. 
             if (abs(current_x - prev_x) <= epsilon) and (abs(current_y - prev_y) <= epsilon):
                 # Points are equal, combine their influences
-                u_combined += u_col[k]
-                v_combined += v_col[k]
-                w_combined += w_col[k]
+                u_combined += u_col[p]
+                v_combined += v_col[p]
+                w_combined += w_col[p]
             else:
                 # Points are different, save the combined influence and update the variables
                 combined_inf.append([u_combined, v_combined, w_combined, prev_x, prev_y])
                 # You only want to append values to combined_inf once you know there are no more rows you want to combine together.
-                u_combined = u_col[k]
-                v_combined = v_col[k]
-                w_combined = w_col[k]
+                u_combined = u_col[p]
+                v_combined = v_col[p]
+                w_combined = w_col[p]
                 prev_x = current_x
                 prev_y = current_y
 
@@ -210,6 +211,42 @@ class vortex_filaments:
         print("Summed influences on points\n[   u       v     w     eval_x   eval_y]:\n")
         for m in range(len(self.combined_influences)):
             print(self.combined_influences[m], "\n")
+    
+    def calc_one_partial_vel_influence(self):
+        """Use this to compare results of Gauss Quadrature to results of Finite Part integral"""
+        integration_bounds = self.singularities
+        print("first row:\n", integration_bounds[0],"\n")
+        beta_squared = 1-(self.mach_number**2)
+        k = 1
+        xo = integration_bounds[0][2]
+        yo = integration_bounds[0][3] # control points 
+        zo = integration_bounds[0][4]
+        xf = -0.50 # replacing integration_bounds[0][0] sp we can integrate partially up to that point. 
+        y = integration_bounds[0][1]
+        xi = integration_bounds[0][5]
+        uu = 0.0
+        vv = -((self.fil_strength[1])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((1)/((yo-y)**2 + zo**2)) # c
+        ww = ((self.fil_strength[1])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+        self.one_u = uu
+        self.one_v = vv
+        self.one_w = ww
+        print("u, v, w\n", [self.one_u, self.one_v, self.one_w], "\n")
+
+
+    # def calc_one_gauss_quad(self):
+    #     """This function compares gauss quad to the function (calc_one_partial_vel_influence)"""
+    #     integration_bounds = self.singularities
+    #     print("first row:\n", integration_bounds[0],"\n")
+    #     beta_squared = 1-(self.mach_number**2)
+    #     k = 1
+    #     xo = integration_bounds[0][2]
+    #     yo = integration_bounds[0][3] # control points 
+    #     zo = integration_bounds[0][4]
+    #     xf = -0.50 # replacing integration_bounds[0][0] sp we can integrate partially up to that point. 
+    #     y = integration_bounds[0][1]
+    #     xi = integration_bounds[0][5]
+    #     int_v = (1/(x-xo)**2+beta_squared*(())) # from eq 24 in miranda
+    #     scipy.integrate.quad(func, a, b, args=(), full_output=0, epsabs=1.49e-08, epsrel=1.49e-08, limit=50, points=None, weight=None, wvar=None, wopts=None, maxp1=50, limlst=50, complex_func=False)
         
     def plot_vertices(self):
         plt.plot(self.mu_1_pos[0], marker = "o", color = "black", label = "Panel Vertices")
@@ -241,12 +278,12 @@ class vortex_filaments:
         y = self.y_space
         B_squared = mach_number**2 - 1
         j = 2 # THIS LINE AND THE ONE BELOW JUST HELP AVOID CLUTTER IN THE PLOT LEGEND
-        x = np.sqrt(B_squared*(((mach_number**2 - 1) * ((y-self.control_points[j][1])**2)))) + self.control_points[j][0]
+        x = np.sqrt((((B_squared)*((y-self.control_points[j][1])**2)))) + self.control_points[j][0]
         plt.plot(x,y, color = "Red", label = "Mach Cone")
 
         ###### comment in or out the lines below in this function to include or disclude all Mach cones in question.
         for i in range(len(self.control_points)):
-            x = np.sqrt(B_squared*(((mach_number**2 - 1) * ((y-self.control_points[i][1])**2)))) + self.control_points[i][0]
+            x = np.sqrt((((B_squared)*((y-self.control_points[i][1])**2)))) + self.control_points[i][0]
             plt.plot(x,y, color = "Red")
         ###### comment in or out the lines above in this function to include or disclude all Mach cones in question.
 
@@ -280,6 +317,10 @@ class vortex_filaments:
         print("Where x_sing=xf, y_sing=y, x_control=xo, y_control=yo, z_control=zo, x_start=xi, and y_start=y(same as y_sing) \n")
 
         self.calc_velocity_influences()
+        
+        self.calc_one_partial_vel_influence()
+
+        # self.calc_one_gauss_quad()
 
         self.calc_linspace()
         self.plot_vertices()
