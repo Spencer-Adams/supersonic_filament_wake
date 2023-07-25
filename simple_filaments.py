@@ -2,7 +2,7 @@ import json
 import numpy as np
 np.set_printoptions(precision = 4)
 import matplotlib.pyplot as plt 
-import scipy 
+# import scipy 
 
 class vortex_filaments:
     """This class contains functions that define vortex filaments and their influence on velocities at certain points"""
@@ -114,7 +114,7 @@ class vortex_filaments:
         mach_number = self.mach_number
         fila_x = self.starting_point[0]
         fil_y = self.starting_point[1]
-        z_plane = self.starting_point[2] ############################### change this 
+        z_plane = self.starting_point[2] 
         B_squared = mach_number**2 - 1
         for i in range(len(self.control_points)):
             for j in range(len(fil_y)):
@@ -212,58 +212,58 @@ class vortex_filaments:
     ####################################################
 
     
-    def calc_one_partial_vel_influence(self):
-        """Use this to compare results of Gauss Quadrature to results of Finite Part integral"""
-        integration_bounds = self.singularities
-        print("first row:\n", integration_bounds[0],"\n")
-        beta_squared = 1-(self.mach_number**2)
-        k = 1
-        xo = integration_bounds[0][2]
-        yo = integration_bounds[0][3] # control points 
-        zo = integration_bounds[0][4]
-        xf = 0.855 # replacing integration_bounds[0][0] sp we can integrate partially up to that point. 
-        y = integration_bounds[0][1]
-        xi = integration_bounds[0][5]
-        uu = 0.0
-        # should I use abs in the sqrt? ############################ see what up. Also, this one doesn't use finite parts because it does not integrate up to a singularity. 
-        vv = -((self.fil_strength[1])/(2*np.pi*k))*(((xf-xi)/(np.sqrt(abs((xf-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((1)/((yo-y)**2 + zo**2)) 
-        ww = ((self.fil_strength[1])/(2*np.pi*k))*(((xf-xi)/(np.sqrt(abs((xf-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
-        self.one_u = uu
-        self.one_v = vv
-        self.one_w = ww
-        print("u, v, w\n", [self.one_u, self.one_v, self.one_w], "\n")
+    # def calc_one_partial_vel_influence(self):
+    #     """Use this to compare results of Gauss Quadrature to results of Finite Part integral"""
+    #     integration_bounds = self.singularities
+    #     print("first row:\n", integration_bounds[0],"\n")
+    #     beta_squared = 1-(self.mach_number**2)
+    #     k = 1
+    #     xo = integration_bounds[0][2]
+    #     yo = integration_bounds[0][3] # control points 
+    #     zo = integration_bounds[0][4]
+    #     xf = 0.855 # replacing integration_bounds[0][0] sp we can integrate partially up to that point. 
+    #     y = integration_bounds[0][1]
+    #     xi = integration_bounds[0][5]
+    #     uu = 0.0
+    #     # should I use abs in the sqrt? ############################ see what up. Also, this one doesn't use finite parts because it does not integrate up to a singularity. 
+    #     vv = -((self.fil_strength[1])/(2*np.pi*k))*(((xf-xi)/(np.sqrt(abs((xf-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((1)/((yo-y)**2 + zo**2)) 
+    #     ww = ((self.fil_strength[1])/(2*np.pi*k))*(((xf-xi)/(np.sqrt(abs((xf-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+    #     self.one_u = uu
+    #     self.one_v = vv
+    #     self.one_w = ww
+    #     print("u, v, w\n", [self.one_u, self.one_v, self.one_w], "\n")
 
-    def quad_integrands(self, x):
-        integration_bounds = self.singularities
-        xo = integration_bounds[0][2]
-        yo = integration_bounds[0][3] # control points 
-        zo = integration_bounds[0][4]
-        beta_squared = 1-(self.mach_number**2)
-        y = -0.50
-        k = 1
-        return 1 / (abs((x - xo)**2 + beta_squared * ((y - yo)**2 + zo**2)))**(3/2)
+    # def quad_integrands(self, x):
+    #     integration_bounds = self.singularities
+    #     xo = integration_bounds[0][2]
+    #     yo = integration_bounds[0][3] # control points 
+    #     zo = integration_bounds[0][4]
+    #     beta_squared = 1-(self.mach_number**2)
+    #     y = -0.50
+    #     k = 1
+    #     return 1 / (abs((x - xo)**2 + beta_squared * ((y - yo)**2 + zo**2)))**(3/2)
 
-    def calc_one_gauss_quad(self):
-        """This function compares gauss quad to the function (calc_one_partial_vel_influence)"""
-        integration_bounds = self.singularities
-        gamma = self.fil_strength[1]
-        print("first row:\n", integration_bounds[0],"\n")
-        beta_squared = 1-(self.mach_number**2)
-        k = 1
-        xo = integration_bounds[0][2]
-        yo = integration_bounds[0][3] # control points 
-        zo = integration_bounds[0][4]
-        a = 0.0
-        b = 0.855
-        xf = -0.50 # replacing integration_bounds[0][0] sp we can integrate partially up to that point. 
-        y = integration_bounds[0][1]
-        xi = integration_bounds[0][5]
-        result, abserr = scipy.integrate.quad(self.quad_integrands, a, b)
-        print("before_mult: \n", result)
-        v = -((-beta_squared*gamma)/(2*np.pi*k))*result ######### figure out why the sign is off
-        print("v:\n", v)
-        w = -((-beta_squared*gamma*(y-yo))/(2*np.pi*k))*result ################## figure out why the sign is off.
-        print("w: \n", w)
+    # def calc_one_gauss_quad(self):
+    #     """This function compares gauss quad to the function (calc_one_partial_vel_influence)"""
+    #     integration_bounds = self.singularities
+    #     gamma = self.fil_strength[1]
+    #     print("first row:\n", integration_bounds[0],"\n")
+    #     beta_squared = 1-(self.mach_number**2)
+    #     k = 1
+    #     xo = integration_bounds[0][2]
+    #     yo = integration_bounds[0][3] # control points 
+    #     zo = integration_bounds[0][4]
+    #     a = 0.0
+    #     b = 0.855
+    #     xf = -0.50 # replacing integration_bounds[0][0] sp we can integrate partially up to that point. 
+    #     y = integration_bounds[0][1]
+    #     xi = integration_bounds[0][5]
+    #     result, abserr = scipy.integrate.quad(self.quad_integrands, a, b)
+    #     print("before_mult: \n", result)
+    #     v = -((-beta_squared*gamma)/(2*np.pi*k))*result ######### figure out why the sign is off
+    #     print("v:\n", v)
+    #     w = -((-beta_squared*gamma*(y-yo))/(2*np.pi*k))*result ################## figure out why the sign is off.
+    #     print("w: \n", w)
 
     ####################################################
     ##              GAUSS QUAD SECTION END            ##
@@ -273,7 +273,6 @@ class vortex_filaments:
         plt.plot(self.mu_positions[0][0], marker = "o", color = "black", label = "Panel Vertices")
         # plt.plot(self.mu_positions[i][0], self.mu_positions[i][1],self.mu_positions[i][2], marker = "o", color = "black")
 
-        print("mu_guys", self.mu_positions[0][0], self.mu_positions[0][1])
         #plot panel vertices
         for i in range(len(self.mu_positions)):
             plt.plot(self.mu_positions[i][0], self.mu_positions[i][1],self.mu_positions[i][2], marker = "o", color = "black")
@@ -340,9 +339,9 @@ class vortex_filaments:
 
         self.calc_velocity_influences()
         
-        self.calc_one_partial_vel_influence()
+        # self.calc_one_partial_vel_influence()
 
-        self.calc_one_gauss_quad()
+        # self.calc_one_gauss_quad()
 
         self.calc_linspace()
         self.plot_vertices()
