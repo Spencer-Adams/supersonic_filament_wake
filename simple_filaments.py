@@ -13,11 +13,7 @@ class vortex_filaments:
         """This function loads the json"""
         with open(self.json_file, 'r') as json_handle:
             input_vals = json.load(json_handle) 
-            self.mu_1_pos = input_vals["mu_1_pos"]
-            self.mu_2_pos = input_vals["mu_2_pos"]
-            self.mu_3_pos = input_vals["mu_3_pos"]
-            self.mu_4_pos = input_vals["mu_4_pos"]
-            self.mu_positions = np.array([self.mu_1_pos, self.mu_2_pos, self.mu_3_pos, self.mu_4_pos])
+            self.mu_positions = np.array(input_vals["mu_positions"])
             self.mu_1_1 = input_vals["mu_1_1"]
             self.mu_1_2 = input_vals["mu_1_2"]
             self.mu_2_1 = input_vals["mu_2_1"]
@@ -111,7 +107,7 @@ class vortex_filaments:
         y_loc = np.empty(3)
         z_loc = np.empty(3)
         for i in range(len(self.mu_positions)-1):
-            x_loc[i] = 0.0
+            x_loc[i] = (self.mu_positions[i+1][0] + self.mu_positions[i][0])/2
             y_loc[i] = (self.mu_positions[i+1][1] + self.mu_positions[i][1])/2
             z_loc[i] = (self.mu_positions[i+1][2] + self.mu_positions[i][2])/2
         filament_x_start = np.array(x_loc)
@@ -119,16 +115,21 @@ class vortex_filaments:
         filament_z_start = np.array(z_loc)
         self.starting_point = np.array([filament_x_start, filament_y_start, filament_z_start])
 
-    def calc_cone_singularity_locs(self):
+    def calc_cone_singularity_locs(self):  ############### this is the one you've got to figure out how to flip around. 
         """This function finds the intersection of the filaments with the mach cones of all the points of interest"""
         intersect_x_y = []
         mach_number = self.mach_number
+        fila_x = self.starting_point[0]
         fil_y = self.starting_point[1]
+        z_plane = 0.0 ############################### change this 
         B_squared = mach_number**2 - 1
         for i in range(len(self.control_points)):
             for j in range(len(fil_y)):
-                fil_x = np.sqrt((((mach_number**2 - 1) * ((fil_y[j]-self.control_points[i][1])**2)))) + self.control_points[i][0]
-                if fil_x <= 0.0:
+                fil_x = -(np.sqrt((B_squared) * ((self.control_points[i][1]-fil_y[j])**2)+(self.control_points[i][2]-z_plane)**2) - self.control_points[i][0])  ##############################make sure assumptions are correct
+                print(fil_x)
+                if fil_x <= fila_x[j]:
+                    continue
+                else:
                     # print("x,y", [fil_x, fil_y[j]])
                     # print("at control point: \n", self.control_points[i], "\n")
                     intersect_x_y.append([fil_x, fil_y[j], self.control_points[i][0], self.control_points[i][1], self.control_points[i][2], 0.0, fil_y[j]])
@@ -155,8 +156,9 @@ class vortex_filaments:
                 if abs(integration_bounds[i][6] - self.starting_point[1][j]) <= epsilon:
                     u = 0
                     # to get more accurate results, change -((self.fil_strength[0]) to -((self.fil_strength[0]*zo) on the v equation. For now, leave off to test sensitivities.  
-                    v = -((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((1)/((yo-y)**2 + zo**2))
-                    w = ((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+                    v = -((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((1)/((yo-y)**2 + zo**2))
+                    # v = -self.fil_strength[j] / (2 * np.pi * k) * (1 / ((y - yo) ** 2 + zo ** 2)) * -np.tan(np.arcsin((xi - xo) / (np.sqrt(-beta_squared * ((y - yo) ** 2 + zo ** 2))))) Here's my version that python doesn't like
+                    w = ((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
                     # print("filament_strength:\n", self.fil_strength[j]) 
                     velocity_influences.append([u, v, w, xo, yo, y])
                 else: 
@@ -211,6 +213,11 @@ class vortex_filaments:
         print("Summed influences on points\n[   u       v     w     eval_x   eval_y]:\n")
         for m in range(len(self.combined_influences)):
             print(self.combined_influences[m], "\n")
+
+    ####################################################
+    ##              GAUSS QUAD SECTION START          ##
+    ####################################################
+
     
     def calc_one_partial_vel_influence(self):
         """Use this to compare results of Gauss Quadrature to results of Finite Part integral"""
@@ -225,37 +232,13 @@ class vortex_filaments:
         y = integration_bounds[0][1]
         xi = integration_bounds[0][5]
         uu = 0.0
-        # should I use abs in the sqrt? 
-        vv = -((self.fil_strength[1])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((1)/((yo-y)**2 + zo**2)) # c
-        ww = ((self.fil_strength[1])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)+zo**2)))))-((xo-xf)/(np.sqrt(abs((xo-xf)**2 + beta_squared*((yo-y)+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+        # should I use abs in the sqrt? ############################ see what up. Also, this one doesn't use finite parts because it does not integrate up to a singularity. 
+        vv = -((self.fil_strength[1])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((1)/((yo-y)**2 + zo**2)) 
+        ww = ((self.fil_strength[1])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
         self.one_u = uu
         self.one_v = vv
         self.one_w = ww
         print("u, v, w\n", [self.one_u, self.one_v, self.one_w], "\n")
-
-
-        #     import scipy.integrate
-
-        # # Define the constants x_0, y_0, z_0, and B
-        # x_0 = 1.0
-        # y_0 = 2.0
-        # z_0 = 3.0
-        # B = 4.0
-
-        # # Define the integrand function with respect to x
-        # def integrand(x):
-        #     return 1 / ((x - x_0)**2 + B**2 * ((y - y_0)**2 + z_0**2))**(3/2)
-
-        # # Define the limits of integration with respect to x
-        # a = 0
-        # b = 1
-
-        # # Call scipy.integrate.quad() to compute the definite integral
-        # result, abserr = scipy.integrate.quad(integrand, a, b)
-
-        # # Print the result
-        # print("Result of integration:", result)
-        # print("Estimated absolute error:", abserr)
 
     def quad_integrands(self, x):
         integration_bounds = self.singularities
@@ -289,19 +272,21 @@ class vortex_filaments:
         w = ((-beta_squared*gamma*(y-yo))/(2*np.pi*k))*result
         print("w: \n", w)
 
+    ####################################################
+    ##              GAUSS QUAD SECTION END            ##
+    ####################################################
+
     def plot_vertices(self):
-        plt.plot(self.mu_1_pos[0], marker = "o", color = "black", label = "Panel Vertices")
+        plt.plot(self.mu_positions[0][0], marker = "o", color = "black", label = "Panel Vertices")
         #plot panel vertices
-        plt.plot(self.mu_1_pos[0], self.mu_1_pos[1],self.mu_1_pos[2], marker = "o", color = "black")
-        plt.plot(self.mu_2_pos[0], self.mu_2_pos[1],self.mu_1_pos[2], marker = "o", color = "black")
-        plt.plot(self.mu_3_pos[0], self.mu_3_pos[1],self.mu_1_pos[2], marker = "o", color = "black")
-        plt.plot(self.mu_4_pos[0], self.mu_4_pos[1],self.mu_1_pos[2], marker = "o", color = "black")
+        for i in range(len(self.mu_positions)):
+            plt.plot(self.mu_positions[i][0], self.mu_positions[i][1],self.mu_positions[i][2], marker = "o", color = "black")
 
     def plot_filaments(self):
-        plt.hlines(y = .5, xmin=-10, xmax = 0, color = "blue", label = "Filaments")
-        plt.hlines(y = -.5, xmin=-10, xmax = 0, color = "blue")
-        plt.hlines(y = -1.5, xmin=-10, xmax = 0, color = "blue")
-
+        plt.hlines(y = (self.mu_positions[0][1]+self.mu_positions[0+1][1])/2, xmin = (self.mu_positions[0][0]+self.mu_positions[0+1][0])/2, xmax = 10, color = "blue", label= "Filaments")
+        for i in range(1, len(self.mu_positions)-1):
+            plt.hlines(y = (self.mu_positions[i][1]+self.mu_positions[i+1][1])/2, xmin = (self.mu_positions[i][0]+self.mu_positions[i+1][0])/2, xmax = 10, color = "blue")
+        
     def plot_panels(self):
         for i in range(-3, 3):
             plt.hlines(y = i, xmin=0, xmax = .5, color = "black")
@@ -319,12 +304,12 @@ class vortex_filaments:
         y = self.y_space
         B_squared = mach_number**2 - 1
         j = 2 # THIS LINE AND THE ONE BELOW JUST HELP AVOID CLUTTER IN THE PLOT LEGEND
-        x = np.sqrt((((B_squared)*((y-self.control_points[j][1])**2)))) + self.control_points[j][0]
+        x = -(np.sqrt((B_squared)*((self.control_points[j][1]-y)**2)+(self.control_points[j][2]-0.0)**2) - self.control_points[j][0]) #############################make sure assumptions are correct
         plt.plot(x,y, color = "Red", label = "Mach Cone")
 
         ###### comment in or out the lines below in this function to include or disclude all Mach cones in question.
         for i in range(len(self.control_points)):
-            x = np.sqrt((((B_squared)*((y-self.control_points[i][1])**2)))) + self.control_points[i][0]
+            x = -(np.sqrt((B_squared)*((self.control_points[i][1]-y)**2)+(self.control_points[i][2]-0.0)**2) - self.control_points[i][0])            
             plt.plot(x,y, color = "Red")
         ###### comment in or out the lines above in this function to include or disclude all Mach cones in question.
 
@@ -369,9 +354,9 @@ class vortex_filaments:
         self.plot_panels()
         self.plot_control_points()
         self.plot_mach_cone()
-        plt.xlim(-5,2)
+        plt.xlim(-2,5)
         plt.ylim(-3.0,2.5)
-        plt.legend(loc='upper left')
+        plt.legend(loc='upper right')
         plt.show()
 
 if __name__ == "__main__":
