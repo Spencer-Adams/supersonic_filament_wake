@@ -13,6 +13,7 @@ class vortex_filaments:
         """This function loads the json"""
         with open(self.json_file, 'r') as json_handle:
             input_vals = json.load(json_handle) 
+            self.n = int(input_vals["num_panels"])
             self.mu_positions = np.array(input_vals["mu_positions"])
             self.mu_strengths = np.array(input_vals["mu_strengths"])
             self.controls = input_vals["control_points"]
@@ -64,11 +65,16 @@ class vortex_filaments:
 
     def calc_normal_deltas(self):
         """This function calculates the width of the panel normal to the vortex filament. Multiply the output of this function by the vortex density to get the vortex strength of the filament"""
+        L = np.zeros((self.n - 1, 3), dtype = float)
         normals = []
-        for i in range(len(self.mu_positions)-1):
-            for j in range(len(self.mu_positions[0])-2):
-                delta = np.sqrt((self.mu_positions[i+1][j]-self.mu_positions[i][j])**2+(self.mu_positions[i+1][j+1]-self.mu_positions[i][j+1])**2+(self.mu_positions[i+1][j+2]-self.mu_positions[i][j+2])**2)
-                normals.append(delta)
+        for i in range(self.n - 1):
+            for j in range(self.n - 1):
+                #delta = np.sqrt((self.mu_positions[i+1][j]-self.mu_positions[i][j])**2+(self.mu_positions[i+1][j+1]-self.mu_positions[i][j+1])**2+(self.mu_positions[i+1][j+2]-self.mu_positions[i][j+2])**2)
+                L[i][j] = (self.mu_positions[i+1][j]-self.mu_positions[i][j])
+        print("L")
+        print(L)
+        for i in range(self.n - 1):
+            normals.append(L[i][1])
         self.deltas = np.array(normals)
 
     # def calc_magnitudes(self):
@@ -85,8 +91,8 @@ class vortex_filaments:
         # print("vortex_dens_length", len(self.omegas))
         filament_strengths = []
         for i in range(len(self.omegas)):
-            skrength = np.dot(self.omegas[i],self.deltas) # np.dot(self.omegas[i], self.deltas[i])
-            filament_strengths.append(skrength)
+            strength = np.dot(self.omegas[i],self.deltas) # np.dot(self.omegas[i], self.deltas[i])
+            filament_strengths.append(strength)
         self.fil_strength = np.array(filament_strengths)
 
     def calc_linspace(self):
