@@ -349,8 +349,19 @@ class vortex_filaments:
         self.plot_panels()
         self.plot_control_points()
         self.plot_mach_cone()
-        plt.xlim(-2,5)
-        plt.ylim(-3.0,2.5)
+
+        #updates axis limits based on geometry
+        if self.mu_positions[0][0] >= self.mu_positions[3][0]:
+            plt.xlim(self.mu_positions[0][0] - 1.5 ,10 )
+    
+        else:
+            plt.xlim(self.mu_positions[0][0] + 1.5 ,10 )
+
+        if self.mu_positions[1][0] >= self.mu_positions[3][0]:
+            plt.ylim(self.mu_positions[0][1] + 1.5, self.mu_positions[3][1] - 1.5)
+        else:
+            plt.ylim(self.mu_positions[0][1] - 1.5, self.mu_positions[3][1] + 1.5) 
+        plt.legend(loc='upper right')
         plt.legend(loc='upper right')
         plt.show()
 
