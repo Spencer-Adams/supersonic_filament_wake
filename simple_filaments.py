@@ -71,7 +71,7 @@ class vortex_filaments:
         for i in range(self.n - 1):
             for j in range(self.n - 1):
                 #delta = np.sqrt((self.mu_positions[i+1][j]-self.mu_positions[i][j])**2+(self.mu_positions[i+1][j+1]-self.mu_positions[i][j+1])**2+(self.mu_positions[i+1][j+2]-self.mu_positions[i][j+2])**2)
-                L[i][j] = (self.mu_positions[i+1][j]-self.mu_positions[i][j])
+                L[i][j] = (abs(self.mu_positions[i+1][j]-self.mu_positions[i][j]))
         print("L")
         print(L)
         for i in range(self.n - 1):
@@ -123,16 +123,23 @@ class vortex_filaments:
         fil_y = self.starting_point[1]
         z_plane = self.starting_point[2] 
         B_squared = mach_number**2 - 1
+
+        fil_xint = np.zeros(shape = (len(self.control_points), len(fil_y)), dtype = float)
         for i in range(len(self.control_points)):
             for j in range(len(fil_y)):
-                fil_x = -(np.sqrt((B_squared) * ((self.control_points[i][1]-fil_y[j])**2)+(self.control_points[i][2]-z_plane[j])**2) - self.control_points[i][0])  ##############################make sure assumptions are correct
-                print(fil_x)
-                if fil_x <= fila_x[j]:
+                if -(np.sqrt((B_squared)*((self.control_points[i][1] - fil_y[j])**2+(self.control_points[i][2])**2)) - self.control_points[i][0]) < fila_x[j]:
                     continue
                 else:
-                    # print("x,y", [fil_x, fil_y[j]])
-                    # print("at control point: \n", self.control_points[i], "\n")
-                    intersect_x_y.append([fil_x, fil_y[j], self.control_points[i][0], self.control_points[i][1], self.control_points[i][2], 0.0, fil_y[j]])
+                    #fil_xint[i][j] =  -(np.sqrt((B_squared) * (((self.control_points[i][1]-fil_y[j])**2)+(self.control_points[i][2]-z_plane[j])**2)) - self.control_points[i][0])
+                    fil_xint[i][j] = -(np.sqrt((B_squared)*((self.control_points[i][1] - fil_y[j])**2+(self.control_points[i][2])**2)) - self.control_points[i][0])
+                
+                intersect_x_y.append([fil_xint[i][j], fil_y[j], self.control_points[i][0], self.control_points[i][1], self.control_points[i][2], fila_x[j], fil_y[j]])
+        
+        print("fil_xint")
+        print(fil_xint)
+        self.fil_xint = fil_xint
+        self.fila_x = fila_x
+        self.fil_y = fil_y
         self.singularities = np.array(intersect_x_y)
 
     def calc_velocity_influences(self): # in loops, still need to define all the variables in the u, v, and w equations
@@ -142,78 +149,101 @@ class vortex_filaments:
         # begin loops to define find the values we need to put in. The limits of integration should be from the panel edges to the singularities at each point. 
         integration_bounds = self.singularities
         velocity_influences = []
-        for i in range(len(integration_bounds)):
-            for j in range(len(self.starting_point[1])):
+
+        u = np.zeros(shape = (len(self.control_points), len(self.fil_y)), dtype = float)
+        v = np.zeros(shape = (len(self.control_points), len(self.fil_y)), dtype = float)
+        w = np.zeros(shape = (len(self.control_points), len(self.fil_y)), dtype = float)
+
+        for i in range(len(self.control_points)):
+            for j in range(len(self.fil_y)):
                 k = 1 # assumming supersonic flow. 
-                xo = integration_bounds[i][2]
-                yo = integration_bounds[i][3]
-                zo = integration_bounds[i][4]
-                xf = integration_bounds[i][0] #  xf = xo - np.sqrt(-beta_squared*(yo-integration_bounds[i][6])**2+zo**2)  
-                y = integration_bounds[i][1]
-                xi = integration_bounds[i][5]
+                #xo = integration_bounds[i][2]
+                #yo = integration_bounds[i][3]
+                #zo = integration_bounds[i][4]
+                #xf = integration_bounds[i][0] #  xf = xo - np.sqrt(-beta_squared*(yo-integration_bounds[i][6])**2+zo**2)  
+                #y = integration_bounds[i][1]
+                #xi = integration_bounds[i][5]
+
+                xo = self.control_points[i][0]
+                yo = self.control_points[i][1]
+                zo = self.control_points[i][2]
+                xi = self.fila_x[j]
+                yi = self.fil_y[j]
+
 
                 # refraining from using integration_bounds[i][6] == self.starting_point[1][j] to prevent computer rounding issues. Using an epsilon just in case.
-                if abs(integration_bounds[i][6] - self.starting_point[1][j]) <= epsilon:
-                    u = 0
+                #if abs(integration_bounds[i][6] - self.starting_point[1][j]) <= epsilon:
+                if self.fil_xint[i][j] == 0:
+                    continue
+                else:
+                    u[i][j] = 0
                     # to get more accurate results, change -((self.fil_strength[0]) to -((self.fil_strength[0]*zo) on the v equation. For now, leave off to test sensitivities.  
-                    v = -((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((1)/((yo-y)**2 + zo**2))
+                    v[i][j] = -((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-yi)**2+zo**2))))))*((1)/((yo-yi)**2 + zo**2))
                     # v = -self.fil_strength[j] / (2 * np.pi * k) * (1 / ((y - yo) ** 2 + zo ** 2)) * -np.tan(np.arcsin((xi - xo) / (np.sqrt(-beta_squared * ((y - yo) ** 2 + zo ** 2))))) Here's my version that python doesn't like
-                    w = ((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+                    w[i][j] = ((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-yi)**2+zo**2))))))*((yo-yi)/((yo-yi)**2 + zo**2))
                     # print("filament_strength:\n", self.fil_strength[j]) 
-                    velocity_influences.append([u, v, w, xo, yo, y])
-                else: 
-                    continue 
-        self.vel_influence = np.array(velocity_influences)
+                    #velocity_influences.append([u, v, w, xo, yo, y])
 
-        # print statements to help understand where to get the values from to combine influences later in the function
-        print("\ninfluences on evaluation points\n[   u       v     w     eval_x   eval_y  filament(named based on y location)]:\n")
-        for j in range(len(self.vel_influence)):
-            print(self.vel_influence[j], "\n")
+        
+        print("u,v,w")
+        print(u)
+        print(v)
+        print(w)
 
-        ## Now, sum the influences of all the filaments together.
-        combined_inf = []
-        u_col = self.vel_influence[:, 0]
-        v_col = self.vel_influence[:, 1]
-        w_col = self.vel_influence[:, 2]
-        eval_point_x = self.vel_influence[:, 3]
-        eval_point_y = self.vel_influence[:, 4]
 
-        # Start with the first row's influence
-        u_combined = u_col[0]
-        v_combined = v_col[0]
-        w_combined = w_col[0]
-        prev_x = eval_point_x[0]
-        prev_y = eval_point_y[0]
 
-        for p in range(1, len(self.vel_influence)):
-            current_x = eval_point_x[p]
-            current_y = eval_point_y[p]
+        ############################ Re-do This #############################################
 
-            # refraining from using current_x==prev_x to prevent computer rounding issues. Using an epsilon just in case. 
-            if (abs(current_x - prev_x) <= epsilon) and (abs(current_y - prev_y) <= epsilon):
-                # Points are equal, combine their influences
-                u_combined += u_col[p]
-                v_combined += v_col[p]
-                w_combined += w_col[p]
-            else:
-                # Points are different, save the combined influence and update the variables
-                combined_inf.append([u_combined, v_combined, w_combined, prev_x, prev_y])
-                # You only want to append values to combined_inf once you know there are no more rows you want to combine together.
-                u_combined = u_col[p]
-                v_combined = v_col[p]
-                w_combined = w_col[p]
-                prev_x = current_x
-                prev_y = current_y
-
-        # Add the last combined influence after the loop finishes
-        combined_inf.append([u_combined, v_combined, w_combined, prev_x, prev_y])
-
-        self.combined_influences = np.array(combined_inf)
-        # print statements to show the combined influence of all the filaments on all the points (if the filaments lie inside the mach cone of said point)
-        print("Summed influences on points\n[   u       v     w     eval_x   eval_y]:\n")
-        for m in range(len(self.combined_influences)):
-            print(self.combined_influences[m], "\n")
-
+       # # print statements to help understand where to get the values from to combine influences later in the function
+       # print("\ninfluences on evaluation points\n[   u       v     w     eval_x   eval_y  filament(named based on y location)]:\n")
+       # for j in range(len(self.vel_influence)):
+       #     print(">>>>")
+       #     print(self.vel_influence[j], "\n")
+#
+       # ## Now, sum the influences of all the filaments together.
+       # combined_inf = []
+       # u_col = self.vel_influence[:, 0]
+       # v_col = self.vel_influence[:, 1]
+       # w_col = self.vel_influence[:, 2]
+       # eval_point_x = self.vel_influence[:, 3]
+       # eval_point_y = self.vel_influence[:, 4]
+#
+       # # Start with the first row's influence
+       # u_combined = u_col[0]
+       # v_combined = v_col[0]
+       # w_combined = w_col[0]
+       # prev_x = eval_point_x[0]
+       # prev_y = eval_point_y[0]
+#
+       # for p in range(1, len(self.vel_influence)):
+       #     current_x = eval_point_x[p]
+       #     current_y = eval_point_y[p]
+#
+       #     # refraining from using current_x==prev_x to prevent computer rounding issues. Using an epsilon just in case. 
+       #     if (abs(current_x - prev_x) <= epsilon) and (abs(current_y - prev_y) <= epsilon):
+       #         # Points are equal, combine their influences
+       #         u_combined += u_col[p]
+       #         v_combined += v_col[p]
+       #         w_combined += w_col[p]
+       #     else:
+       #         # Points are different, save the combined influence and update the variables
+       #         combined_inf.append([u_combined, v_combined, w_combined, prev_x, prev_y])
+       #         # You only want to append values to combined_inf once you know there are no more rows you want to combine together.
+       #         u_combined = u_col[p]
+       #         v_combined = v_col[p]
+       #         w_combined = w_col[p]
+       #         prev_x = current_x
+       #         prev_y = current_y
+#
+       # # Add the last combined influence after the loop finishes
+       # combined_inf.append([u_combined, v_combined, w_combined, prev_x, prev_y])
+#
+       # self.combined_influences = np.array(combined_inf)
+       # # print statements to show the combined influence of all the filaments on all the points (if the filaments lie inside the mach cone of said point)
+       # print("Summed influences on points\n[   u       v     w     eval_x   eval_y]:\n")
+       # for m in range(len(self.combined_influences)):
+       #     print(self.combined_influences[m], "\n")
+#
     ####################################################
     ##              GAUSS QUAD SECTION START          ##
     ####################################################
