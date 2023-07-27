@@ -3,6 +3,7 @@ import numpy as np
 np.set_printoptions(precision = 4)
 import matplotlib.pyplot as plt 
 # import scipy 
+##################### Conner_Dev ######################
 
 class vortex_filaments:
     """This class contains functions that define vortex filaments and their influence on velocities at certain points"""
