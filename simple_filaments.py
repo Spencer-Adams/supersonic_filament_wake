@@ -119,7 +119,7 @@ class vortex_filaments:
         for i in range(len(self.control_points)):
             for j in range(len(fil_y)):
                 fil_x = -(np.sqrt((B_squared) * ((self.control_points[i][1]-fil_y[j])**2)+(self.control_points[i][2]-z_plane[j])**2) - self.control_points[i][0])  ##############################make sure assumptions are correct
-                print(fil_x)
+                # print(fil_x)
                 if fil_x <= fila_x[j]:
                     continue
                 else:
@@ -151,7 +151,11 @@ class vortex_filaments:
                     # to get more accurate results, change -((self.fil_strength[0]) to -((self.fil_strength[0]*zo) on the v equation. For now, leave off to test sensitivities.  
                     v = -((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((1)/((yo-y)**2 + zo**2))
                     # v = -self.fil_strength[j] / (2 * np.pi * k) * (1 / ((y - yo) ** 2 + zo ** 2)) * -np.tan(np.arcsin((xi - xo) / (np.sqrt(-beta_squared * ((y - yo) ** 2 + zo ** 2))))) Here's my version that python doesn't like
-                    w = ((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(abs((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+                    w = ((self.fil_strength[j])/(2*np.pi*k))*(((xo-xi)/(np.sqrt(((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))))*((yo-y)/((yo-y)**2 + zo**2))
+                    # ww = ((self.fil_strength[j]*beta_squared)/(2*np.pi*k))*((((yo-y)*(xo-xi))/(beta_squared*((yo-y)**2+(zo)**2)*np.sqrt((xo-xi)**2 + beta_squared*((yo-y)**2+zo**2))))-(((yo-y)**2+(zo**2))/((yo-y)*(xo-xi)*np.sqrt((xo-xi)**2+beta_squared*((yo-y)**2 + (zo)**2)))))
+                    ww = ((self.fil_strength[j]*beta_squared)/(2*np.pi*k))*((((yo-y)*(xo-xi))/(beta_squared*((yo-y)**2+(zo)**2)*np.sqrt((xo-xi)**2 + beta_squared*((yo-y)**2 + (zo)**2)))))#-(((yo-y)**2+(zo**2))/((yo-y)*(xo-xi)*np.sqrt((xo-xi)**2 + beta_squared*((yo-y)**2 + (zo)**2)))))
+                    dude =  ((ww-w)/(w))*100 
+                    print("w  :", w, "\n", "ww:", ww, "\n", "error (%):", dude, "\n")
                     # print("filament_strength:\n", self.fil_strength[j]) 
                     velocity_influences.append([u, v, w, xo, yo, y])
                 else: 
@@ -289,7 +293,7 @@ class vortex_filaments:
 
     def plot_control_points(self):  # this is causing some weird graphical stuff to happen. That's why the negative sign has to be on the x portion of the plot there
         j = 0 # THIS LINE AND THE ONE BELOW JUST HELP AVOID CLUTTER IN THE PLOT LEGEND
-        plt.plot(self.control_points[j][0], self.control_points[j][1], marker = "o", color = "Red", label = "Control Points")
+        plt.plot(self.control_points[j][0], self.control_points[j][1], marker = "o", color = "Red", label = "Velocity Evaluation Points")
         for i in range(1, len(self.control_points)):
             # print("control point", i, ":\n", self.control_points[i][0])
             plt.plot(self.control_points[i][0], self.control_points[i][1], marker = "o", color = "Red")            
